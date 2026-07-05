@@ -1,0 +1,1648 @@
+<div class="app-shell">
+
+  <header class="topbar">
+
+    <a
+      class="brand"
+      href="#"
+      (click)="$event.preventDefault(); setView('dashboard')"
+    >
+      <span class="brand-icon">
+        BP
+      </span>
+
+      <span>
+        <strong>BudgetPilot AI</strong>
+        <small>Personal finance dashboard</small>
+      </span>
+    </a>
+
+    <nav class="main-nav">
+
+      <button
+        type="button"
+        [class.active]="activeView === 'dashboard'"
+        (click)="setView('dashboard')"
+      >
+        Tableau de bord
+      </button>
+
+      <button
+        type="button"
+        [class.active]="activeView === 'transactions'"
+        (click)="setView('transactions')"
+      >
+        Transactions
+      </button>
+
+      <button
+        type="button"
+        [class.active]="activeView === 'budgets'"
+        (click)="setView('budgets')"
+      >
+        Budgets
+      </button>
+
+      <button
+        type="button"
+        [class.active]="activeView === 'categories'"
+        (click)="setView('categories')"
+      >
+        Catégories
+      </button>
+
+    </nav>
+
+    <div class="period-picker">
+
+      <select
+        [(ngModel)]="selectedMonth"
+        (change)="changePeriod()"
+        aria-label="Mois"
+      >
+        <option
+          *ngFor="let month of months"
+          [ngValue]="month.value"
+        >
+          {{ month.label }}
+        </option>
+      </select>
+
+      <select
+        [(ngModel)]="selectedYear"
+        (change)="changePeriod()"
+        aria-label="Année"
+      >
+        <option
+          *ngFor="let year of years"
+          [ngValue]="year"
+        >
+          {{ year }}
+        </option>
+      </select>
+
+    </div>
+
+  </header>
+
+  <main class="main-container">
+
+    <section class="hero-panel">
+
+      <div>
+        <span class="eyebrow">
+          Vue financière mensuelle
+        </span>
+
+        <h1>
+          Pilotez votre budget avec clarté.
+        </h1>
+
+        <p>
+          Suivez vos revenus, contrôlez vos dépenses
+          et définissez des budgets adaptés à vos objectifs.
+        </p>
+      </div>
+
+      <div class="hero-balance">
+
+        <span>Solde du mois</span>
+
+        <strong
+          [class.negative]="statistics.balance < 0"
+        >
+          {{ formatAmount(statistics.balance) }}
+        </strong>
+
+        <small>
+          {{ months[selectedMonth - 1].label }}
+          {{ selectedYear }}
+        </small>
+
+      </div>
+
+    </section>
+
+    <div
+      *ngIf="errorMessage"
+      class="alert alert-error"
+    >
+      <span>⚠️</span>
+      {{ errorMessage }}
+    </div>
+
+    <div
+      *ngIf="successMessage"
+      class="alert alert-success"
+    >
+      <span>✅</span>
+      {{ successMessage }}
+    </div>
+
+    <div
+      *ngIf="loading"
+      class="loading-panel"
+    >
+      <div class="spinner"></div>
+      <p>Chargement de vos données financières...</p>
+    </div>
+
+    <ng-container *ngIf="!loading">
+
+      <!-- DASHBOARD -->
+
+      <ng-container *ngIf="activeView === 'dashboard'">
+
+        <section class="statistics-grid">
+
+          <article class="stat-card income-card">
+            <div class="stat-icon">↗</div>
+            <div>
+              <span>Revenus</span>
+              <strong>
+                {{ formatAmount(statistics.totalIncome) }}
+              </strong>
+              <small>Entrées du mois</small>
+            </div>
+          </article>
+
+          <article class="stat-card expense-card">
+            <div class="stat-icon">↘</div>
+            <div>
+              <span>Dépenses</span>
+              <strong>
+                {{ formatAmount(statistics.totalExpense) }}
+              </strong>
+              <small>Sorties du mois</small>
+            </div>
+          </article>
+
+          <article class="stat-card balance-card">
+            <div class="stat-icon">◎</div>
+            <div>
+              <span>Solde</span>
+              <strong
+                [class.negative]="statistics.balance < 0"
+              >
+                {{ formatAmount(statistics.balance) }}
+              </strong>
+              <small>Revenus moins dépenses</small>
+            </div>
+          </article>
+
+          <article class="stat-card budget-card">
+            <div class="stat-icon">◔</div>
+            <div>
+              <span>Budget restant</span>
+              <strong
+                [class.negative]="statistics.remainingBudget < 0"
+              >
+                {{ formatAmount(statistics.remainingBudget) }}
+              </strong>
+              <small>
+                {{ statistics.transactionCount }}
+                transaction(s)
+              </small>
+            </div>
+          </article>
+
+        </section>
+
+        <section class="dashboard-grid">
+
+          <article class="panel spending-panel">
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  Analyse
+                </span>
+                <h2>Dépenses par catégorie</h2>
+              </div>
+
+              <button
+                type="button"
+                class="text-button"
+                (click)="setView('transactions')"
+              >
+                Voir les transactions
+              </button>
+            </div>
+
+            <div
+              *ngIf="expenseBreakdown.length === 0"
+              class="empty-state compact"
+            >
+              <span>📊</span>
+              <p>
+                Aucune dépense pour cette période.
+              </p>
+            </div>
+
+            <div
+              *ngFor="let item of expenseBreakdown"
+              class="breakdown-row"
+            >
+
+              <div
+                class="category-avatar"
+                [style.background]="item.category.color + '18'"
+                [style.color]="item.category.color"
+              >
+                {{ getCategoryIcon(item.category) }}
+              </div>
+
+              <div class="breakdown-content">
+
+                <div class="breakdown-label">
+                  <span>
+                    {{ item.category.name }}
+                  </span>
+
+                  <strong>
+                    {{ formatAmount(item.total) }}
+                  </strong>
+                </div>
+
+                <div class="progress-track">
+                  <span
+                    [style.width.%]="item.percentage"
+                    [style.background]="item.category.color"
+                  ></span>
+                </div>
+
+              </div>
+
+              <small>
+                {{ item.percentage | number:'1.0-1' }}%
+              </small>
+
+            </div>
+
+          </article>
+
+          <article class="panel recent-panel">
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  Activité
+                </span>
+                <h2>Transactions récentes</h2>
+              </div>
+
+              <button
+                type="button"
+                class="icon-button"
+                title="Ajouter une transaction"
+                (click)="setView('transactions')"
+              >
+                +
+              </button>
+            </div>
+
+            <div
+              *ngIf="recentTransactions.length === 0"
+              class="empty-state compact"
+            >
+              <span>🧾</span>
+              <p>
+                Aucune transaction enregistrée.
+              </p>
+            </div>
+
+            <div
+              *ngFor="
+                let transaction of recentTransactions;
+                trackBy: trackById
+              "
+              class="recent-transaction"
+            >
+
+              <div
+                class="category-avatar"
+                [style.background]="transaction.category.color + '18'"
+                [style.color]="transaction.category.color"
+              >
+                {{ getCategoryIcon(transaction.category) }}
+              </div>
+
+              <div class="recent-info">
+                <strong>
+                  {{ transaction.title }}
+                </strong>
+
+                <small>
+                  {{ transaction.category.name }}
+                  •
+                  {{ transaction.transactionDate | date:'dd/MM/yyyy' }}
+                </small>
+              </div>
+
+              <strong
+                class="transaction-amount"
+                [class.income]="transaction.type === 'INCOME'"
+                [class.expense]="transaction.type === 'EXPENSE'"
+              >
+                {{ transaction.type === 'INCOME' ? '+' : '-' }}
+                {{ formatAmount(transaction.amount) }}
+              </strong>
+
+            </div>
+
+          </article>
+
+        </section>
+
+        <section class="panel budget-overview">
+
+          <div class="panel-header">
+            <div>
+              <span class="section-kicker">
+                Contrôle
+              </span>
+              <h2>Progression des budgets</h2>
+            </div>
+
+            <button
+              type="button"
+              class="primary-button small"
+              (click)="setView('budgets')"
+            >
+              Gérer les budgets
+            </button>
+          </div>
+
+          <div
+            *ngIf="budgets.length === 0"
+            class="empty-state"
+          >
+            <span>🎯</span>
+            <h3>Aucun budget configuré</h3>
+            <p>
+              Créez votre premier budget mensuel
+              pour mieux contrôler vos dépenses.
+            </p>
+          </div>
+
+          <div
+            *ngIf="budgets.length > 0"
+            class="budget-preview-grid"
+          >
+
+            <article
+              *ngFor="
+                let budget of budgets;
+                trackBy: trackById
+              "
+              class="budget-preview-card"
+              [class.exceeded]="isBudgetExceeded(budget)"
+            >
+
+              <div class="budget-preview-header">
+
+                <div
+                  class="category-avatar large"
+                  [style.background]="budget.category.color + '18'"
+                  [style.color]="budget.category.color"
+                >
+                  {{ getCategoryIcon(budget.category) }}
+                </div>
+
+                <div>
+                  <strong>
+                    {{ budget.category.name }}
+                  </strong>
+
+                  <small>
+                    {{ formatAmount(getBudgetSpent(budget)) }}
+                    dépensés
+                  </small>
+                </div>
+
+                <span
+                  class="budget-status"
+                  [class.danger]="isBudgetExceeded(budget)"
+                >
+                  {{
+                    isBudgetExceeded(budget)
+                      ? 'Dépassé'
+                      : 'En cours'
+                  }}
+                </span>
+
+              </div>
+
+              <div class="budget-values">
+                <span>
+                  {{ formatAmount(getBudgetSpent(budget)) }}
+                </span>
+
+                <strong>
+                  {{ formatAmount(budget.limitAmount) }}
+                </strong>
+              </div>
+
+              <div class="progress-track budget-progress">
+                <span
+                  [style.width.%]="getBudgetPercentage(budget)"
+                  [style.background]="
+                    isBudgetExceeded(budget)
+                      ? '#dc2626'
+                      : budget.category.color
+                  "
+                ></span>
+              </div>
+
+              <small
+                [class.negative]="getBudgetRemaining(budget) < 0"
+              >
+                Reste :
+                {{ formatAmount(getBudgetRemaining(budget)) }}
+              </small>
+
+            </article>
+
+          </div>
+
+        </section>
+
+      </ng-container>
+
+      <!-- TRANSACTIONS -->
+
+      <ng-container *ngIf="activeView === 'transactions'">
+
+        <section class="page-heading">
+          <div>
+            <span class="section-kicker">
+              Gestion
+            </span>
+
+            <h2>Transactions</h2>
+
+            <p>
+              Ajoutez vos revenus et vos dépenses,
+              puis filtrez l’historique.
+            </p>
+          </div>
+
+          <div class="heading-badge">
+            {{ transactions.length }}
+            transaction(s)
+          </div>
+        </section>
+
+        <section class="content-grid transaction-layout">
+
+          <article
+            id="transaction-form"
+            class="panel form-panel"
+          >
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  {{
+                    editingTransactionId === null
+                      ? 'Nouvelle opération'
+                      : 'Modification'
+                  }}
+                </span>
+
+                <h2>
+                  {{
+                    editingTransactionId === null
+                      ? 'Ajouter une transaction'
+                      : 'Modifier la transaction'
+                  }}
+                </h2>
+              </div>
+
+              <button
+                *ngIf="editingTransactionId !== null"
+                type="button"
+                class="secondary-button small"
+                (click)="resetTransactionForm()"
+              >
+                Annuler
+              </button>
+            </div>
+
+            <form
+              [formGroup]="transactionForm"
+              (ngSubmit)="saveTransaction()"
+            >
+
+              <div class="form-grid">
+
+                <div class="field full-field">
+                  <label for="transaction-title">
+                    Titre
+                  </label>
+
+                  <input
+                    id="transaction-title"
+                    type="text"
+                    formControlName="title"
+                    placeholder="Exemple : Courses de la semaine"
+                  >
+
+                  <small
+                    class="field-error"
+                    *ngIf="
+                      transactionForm.get('title')?.touched
+                      &&
+                      transactionForm.get('title')?.invalid
+                    "
+                  >
+                    Le titre est obligatoire.
+                  </small>
+                </div>
+
+                <div class="field">
+                  <label for="transaction-amount">
+                    Montant
+                  </label>
+
+                  <div class="amount-input">
+                    <input
+                      id="transaction-amount"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      formControlName="amount"
+                      placeholder="0.00"
+                    >
+                    <span>TND</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="transaction-type">
+                    Type
+                  </label>
+
+                  <select
+                    id="transaction-type"
+                    formControlName="type"
+                  >
+                    <option value="EXPENSE">
+                      Dépense
+                    </option>
+
+                    <option value="INCOME">
+                      Revenu
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="transaction-category">
+                    Catégorie
+                  </label>
+
+                  <select
+                    id="transaction-category"
+                    formControlName="categoryId"
+                  >
+                    <option [ngValue]="null">
+                      Sélectionner
+                    </option>
+
+                    <option
+                      *ngFor="let category of transactionCategoryOptions"
+                      [ngValue]="category.id"
+                    >
+                      {{ getCategoryIcon(category) }}
+                      {{ category.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="transaction-date">
+                    Date
+                  </label>
+
+                  <input
+                    id="transaction-date"
+                    type="date"
+                    formControlName="transactionDate"
+                  >
+                </div>
+
+                <div class="field full-field">
+                  <label for="transaction-description">
+                    Description
+                  </label>
+
+                  <textarea
+                    id="transaction-description"
+                    rows="4"
+                    formControlName="description"
+                    placeholder="Ajouter une note facultative..."
+                  ></textarea>
+                </div>
+
+              </div>
+
+              <button
+                type="submit"
+                class="primary-button submit-button"
+                [disabled]="savingTransaction"
+              >
+                {{
+                  savingTransaction
+                    ? 'Enregistrement...'
+                    : editingTransactionId === null
+                      ? 'Ajouter la transaction'
+                      : 'Enregistrer les modifications'
+                }}
+              </button>
+
+            </form>
+
+          </article>
+
+          <article class="panel filters-panel">
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  Recherche
+                </span>
+                <h2>Filtres</h2>
+              </div>
+            </div>
+
+            <form
+              [formGroup]="filterForm"
+              (ngSubmit)="applyTransactionFilters()"
+            >
+
+              <div class="field">
+                <label for="filter-search">
+                  Mot-clé
+                </label>
+
+                <input
+                  id="filter-search"
+                  type="search"
+                  formControlName="search"
+                  placeholder="Titre ou description..."
+                >
+              </div>
+
+              <div class="filter-two-columns">
+
+                <div class="field">
+                  <label for="filter-type">
+                    Type
+                  </label>
+
+                  <select
+                    id="filter-type"
+                    formControlName="type"
+                  >
+                    <option value="">
+                      Tous
+                    </option>
+
+                    <option value="EXPENSE">
+                      Dépenses
+                    </option>
+
+                    <option value="INCOME">
+                      Revenus
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="filter-category">
+                    Catégorie
+                  </label>
+
+                  <select
+                    id="filter-category"
+                    formControlName="categoryId"
+                  >
+                    <option [ngValue]="null">
+                      Toutes
+                    </option>
+
+                    <option
+                      *ngFor="let category of filterCategoryOptions"
+                      [ngValue]="category.id"
+                    >
+                      {{ category.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="date-from">
+                    Du
+                  </label>
+
+                  <input
+                    id="date-from"
+                    type="date"
+                    formControlName="dateFrom"
+                  >
+                </div>
+
+                <div class="field">
+                  <label for="date-to">
+                    Au
+                  </label>
+
+                  <input
+                    id="date-to"
+                    type="date"
+                    formControlName="dateTo"
+                  >
+                </div>
+
+              </div>
+
+              <div class="button-row">
+
+                <button
+                  type="submit"
+                  class="primary-button"
+                  [disabled]="loadingTransactions"
+                >
+                  {{
+                    loadingTransactions
+                      ? 'Recherche...'
+                      : 'Appliquer'
+                  }}
+                </button>
+
+                <button
+                  type="button"
+                  class="secondary-button"
+                  (click)="clearTransactionFilters()"
+                >
+                  Réinitialiser
+                </button>
+
+              </div>
+
+            </form>
+
+          </article>
+
+        </section>
+
+        <section class="panel transaction-history">
+
+          <div class="panel-header">
+            <div>
+              <span class="section-kicker">
+                Historique
+              </span>
+              <h2>Liste des transactions</h2>
+            </div>
+          </div>
+
+          <div
+            *ngIf="transactions.length === 0"
+            class="empty-state"
+          >
+            <span>🧾</span>
+            <h3>Aucune transaction</h3>
+            <p>
+              Ajoutez une opération ou modifiez les filtres.
+            </p>
+          </div>
+
+          <div
+            *ngIf="transactions.length > 0"
+            class="table-wrapper"
+          >
+
+            <table>
+
+              <thead>
+                <tr>
+                  <th>Transaction</th>
+                  <th>Catégorie</th>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Montant</th>
+                  <th class="actions-column">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                <tr
+                  *ngFor="
+                    let transaction of transactions;
+                    trackBy: trackById
+                  "
+                >
+
+                  <td>
+                    <div class="transaction-name">
+                      <div
+                        class="category-avatar"
+                        [style.background]="transaction.category.color + '18'"
+                        [style.color]="transaction.category.color"
+                      >
+                        {{ getCategoryIcon(transaction.category) }}
+                      </div>
+
+                      <div>
+                        <strong>
+                          {{ transaction.title }}
+                        </strong>
+
+                        <small>
+                          {{
+                            transaction.description
+                            || 'Aucune description'
+                          }}
+                        </small>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    {{ transaction.category.name }}
+                  </td>
+
+                  <td>
+                    {{ transaction.transactionDate | date:'dd/MM/yyyy' }}
+                  </td>
+
+                  <td>
+                    <span
+                      class="type-badge"
+                      [class.income-badge]="transaction.type === 'INCOME'"
+                      [class.expense-badge]="transaction.type === 'EXPENSE'"
+                    >
+                      {{
+                        transaction.type === 'INCOME'
+                          ? 'Revenu'
+                          : 'Dépense'
+                      }}
+                    </span>
+                  </td>
+
+                  <td>
+                    <strong
+                      class="transaction-amount"
+                      [class.income]="transaction.type === 'INCOME'"
+                      [class.expense]="transaction.type === 'EXPENSE'"
+                    >
+                      {{ transaction.type === 'INCOME' ? '+' : '-' }}
+                      {{ formatAmount(transaction.amount) }}
+                    </strong>
+                  </td>
+
+                  <td>
+                    <div class="table-actions">
+
+                      <button
+                        type="button"
+                        class="action-button edit"
+                        title="Modifier"
+                        (click)="editTransaction(transaction)"
+                      >
+                        ✎
+                      </button>
+
+                      <button
+                        type="button"
+                        class="action-button delete"
+                        title="Supprimer"
+                        (click)="deleteTransaction(transaction)"
+                      >
+                        🗑
+                      </button>
+
+                    </div>
+                  </td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </section>
+
+      </ng-container>
+
+      <!-- BUDGETS -->
+
+      <ng-container *ngIf="activeView === 'budgets'">
+
+        <section class="page-heading">
+          <div>
+            <span class="section-kicker">
+              Planification
+            </span>
+
+            <h2>Budgets mensuels</h2>
+
+            <p>
+              Définissez une limite pour chaque catégorie
+              de dépense.
+            </p>
+          </div>
+
+          <div class="heading-badge">
+            {{ budgets.length }}
+            budget(s)
+          </div>
+        </section>
+
+        <section class="content-grid budget-layout">
+
+          <article
+            id="budget-form"
+            class="panel form-panel"
+          >
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  {{
+                    editingBudgetId === null
+                      ? 'Nouveau budget'
+                      : 'Modification'
+                  }}
+                </span>
+
+                <h2>
+                  {{
+                    editingBudgetId === null
+                      ? 'Créer un budget'
+                      : 'Modifier le budget'
+                  }}
+                </h2>
+              </div>
+
+              <button
+                *ngIf="editingBudgetId !== null"
+                type="button"
+                class="secondary-button small"
+                (click)="resetBudgetForm()"
+              >
+                Annuler
+              </button>
+            </div>
+
+            <form
+              [formGroup]="budgetForm"
+              (ngSubmit)="saveBudget()"
+            >
+
+              <div class="form-grid">
+
+                <div class="field full-field">
+                  <label for="budget-category">
+                    Catégorie de dépense
+                  </label>
+
+                  <select
+                    id="budget-category"
+                    formControlName="categoryId"
+                  >
+                    <option [ngValue]="null">
+                      Sélectionner
+                    </option>
+
+                    <option
+                      *ngFor="let category of expenseCategories"
+                      [ngValue]="category.id"
+                    >
+                      {{ getCategoryIcon(category) }}
+                      {{ category.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field full-field">
+                  <label for="budget-limit">
+                    Limite mensuelle
+                  </label>
+
+                  <div class="amount-input">
+                    <input
+                      id="budget-limit"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      formControlName="limitAmount"
+                      placeholder="0.00"
+                    >
+                    <span>TND</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="budget-month">
+                    Mois
+                  </label>
+
+                  <select
+                    id="budget-month"
+                    formControlName="budgetMonth"
+                  >
+                    <option
+                      *ngFor="let month of months"
+                      [ngValue]="month.value"
+                    >
+                      {{ month.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="budget-year">
+                    Année
+                  </label>
+
+                  <select
+                    id="budget-year"
+                    formControlName="budgetYear"
+                  >
+                    <option
+                      *ngFor="let year of years"
+                      [ngValue]="year"
+                    >
+                      {{ year }}
+                    </option>
+                  </select>
+                </div>
+
+              </div>
+
+              <button
+                type="submit"
+                class="primary-button submit-button"
+                [disabled]="savingBudget"
+              >
+                {{
+                  savingBudget
+                    ? 'Enregistrement...'
+                    : editingBudgetId === null
+                      ? 'Créer le budget'
+                      : 'Enregistrer les modifications'
+                }}
+              </button>
+
+            </form>
+
+          </article>
+
+          <article class="panel budget-summary-panel">
+
+            <span class="section-kicker">
+              Résumé
+            </span>
+
+            <h2>Vue du mois</h2>
+
+            <div class="summary-line">
+              <span>Budget total</span>
+              <strong>
+                {{ formatAmount(statistics.totalBudget) }}
+              </strong>
+            </div>
+
+            <div class="summary-line">
+              <span>Dépenses totales</span>
+              <strong class="expense">
+                {{ formatAmount(statistics.totalExpense) }}
+              </strong>
+            </div>
+
+            <div class="summary-line total">
+              <span>Budget restant</span>
+              <strong
+                [class.negative]="statistics.remainingBudget < 0"
+              >
+                {{ formatAmount(statistics.remainingBudget) }}
+              </strong>
+            </div>
+
+            <div
+              class="budget-alert"
+              [class.safe]="!statistics.budgetExceeded"
+              [class.danger]="statistics.budgetExceeded"
+            >
+              {{
+                statistics.budgetExceeded
+                  ? '⚠️ Le budget global est dépassé.'
+                  : '✅ Votre budget global est sous contrôle.'
+              }}
+            </div>
+
+          </article>
+
+        </section>
+
+        <section
+          *ngIf="budgets.length > 0"
+          class="budget-cards-grid"
+        >
+
+          <article
+            *ngFor="
+              let budget of budgets;
+              trackBy: trackById
+            "
+            class="budget-detail-card"
+            [class.exceeded]="isBudgetExceeded(budget)"
+          >
+
+            <div class="budget-detail-header">
+
+              <div
+                class="category-avatar large"
+                [style.background]="budget.category.color + '18'"
+                [style.color]="budget.category.color"
+              >
+                {{ getCategoryIcon(budget.category) }}
+              </div>
+
+              <div>
+                <h3>
+                  {{ budget.category.name }}
+                </h3>
+
+                <small>
+                  {{ months[budget.budgetMonth - 1].label }}
+                  {{ budget.budgetYear }}
+                </small>
+              </div>
+
+              <div class="table-actions">
+
+                <button
+                  type="button"
+                  class="action-button edit"
+                  title="Modifier"
+                  (click)="editBudget(budget)"
+                >
+                  ✎
+                </button>
+
+                <button
+                  type="button"
+                  class="action-button delete"
+                  title="Supprimer"
+                  (click)="deleteBudget(budget)"
+                >
+                  🗑
+                </button>
+
+              </div>
+
+            </div>
+
+            <div class="budget-detail-values">
+
+              <div>
+                <span>Dépensé</span>
+                <strong>
+                  {{ formatAmount(getBudgetSpent(budget)) }}
+                </strong>
+              </div>
+
+              <div>
+                <span>Limite</span>
+                <strong>
+                  {{ formatAmount(budget.limitAmount) }}
+                </strong>
+              </div>
+
+            </div>
+
+            <div class="progress-track budget-progress">
+              <span
+                [style.width.%]="getBudgetPercentage(budget)"
+                [style.background]="
+                  isBudgetExceeded(budget)
+                    ? '#dc2626'
+                    : budget.category.color
+                "
+              ></span>
+            </div>
+
+            <div class="budget-detail-footer">
+
+              <span
+                [class.negative]="getBudgetRemaining(budget) < 0"
+              >
+                Reste :
+                {{ formatAmount(getBudgetRemaining(budget)) }}
+              </span>
+
+              <strong>
+                {{ getBudgetPercentage(budget) | number:'1.0-0' }}%
+              </strong>
+
+            </div>
+
+          </article>
+
+        </section>
+
+        <div
+          *ngIf="budgets.length === 0"
+          class="panel empty-state"
+        >
+          <span>🎯</span>
+          <h3>Aucun budget pour cette période</h3>
+          <p>
+            Utilisez le formulaire pour définir une première limite.
+          </p>
+        </div>
+
+      </ng-container>
+
+      <!-- CATEGORIES -->
+
+      <ng-container *ngIf="activeView === 'categories'">
+
+        <section class="page-heading">
+          <div>
+            <span class="section-kicker">
+              Organisation
+            </span>
+
+            <h2>Catégories</h2>
+
+            <p>
+              Organisez les revenus et les dépenses
+              selon vos habitudes.
+            </p>
+          </div>
+
+          <div class="heading-badge">
+            {{ categories.length }}
+            catégorie(s)
+          </div>
+        </section>
+
+        <section class="content-grid category-layout">
+
+          <article
+            id="category-form"
+            class="panel form-panel"
+          >
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  {{
+                    editingCategoryId === null
+                      ? 'Nouvelle catégorie'
+                      : 'Modification'
+                  }}
+                </span>
+
+                <h2>
+                  {{
+                    editingCategoryId === null
+                      ? 'Ajouter une catégorie'
+                      : 'Modifier la catégorie'
+                  }}
+                </h2>
+              </div>
+
+              <button
+                *ngIf="editingCategoryId !== null"
+                type="button"
+                class="secondary-button small"
+                (click)="resetCategoryForm()"
+              >
+                Annuler
+              </button>
+            </div>
+
+            <form
+              [formGroup]="categoryForm"
+              (ngSubmit)="saveCategory()"
+            >
+
+              <div class="form-grid">
+
+                <div class="field full-field">
+                  <label for="category-name">
+                    Nom
+                  </label>
+
+                  <input
+                    id="category-name"
+                    type="text"
+                    formControlName="name"
+                    placeholder="Exemple : Formation"
+                  >
+                </div>
+
+                <div class="field">
+                  <label for="category-type">
+                    Type
+                  </label>
+
+                  <select
+                    id="category-type"
+                    formControlName="type"
+                  >
+                    <option value="EXPENSE">
+                      Dépense
+                    </option>
+
+                    <option value="INCOME">
+                      Revenu
+                    </option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="category-icon">
+                    Icône
+                  </label>
+
+                  <select
+                    id="category-icon"
+                    formControlName="icon"
+                  >
+                    <option value="tag">🏷️ Tag</option>
+                    <option value="wallet">💼 Portefeuille</option>
+                    <option value="laptop">💻 Travail</option>
+                    <option value="gift">🎁 Cadeau</option>
+                    <option value="utensils">🍽️ Nourriture</option>
+                    <option value="car">🚗 Transport</option>
+                    <option value="house">🏠 Logement</option>
+                    <option value="heart">❤️ Santé</option>
+                    <option value="gamepad">🎮 Loisirs</option>
+                    <option value="shopping-bag">🛍️ Shopping</option>
+                  </select>
+                </div>
+
+                <div class="field full-field">
+                  <label for="category-color">
+                    Couleur
+                  </label>
+
+                  <div class="color-field">
+                    <input
+                      id="category-color"
+                      type="color"
+                      formControlName="color"
+                    >
+
+                    <input
+                      type="text"
+                      formControlName="color"
+                      maxlength="7"
+                    >
+                  </div>
+                </div>
+
+              </div>
+
+              <button
+                type="submit"
+                class="primary-button submit-button"
+                [disabled]="savingCategory"
+              >
+                {{
+                  savingCategory
+                    ? 'Enregistrement...'
+                    : editingCategoryId === null
+                      ? 'Ajouter la catégorie'
+                      : 'Enregistrer les modifications'
+                }}
+              </button>
+
+            </form>
+
+          </article>
+
+          <article class="panel category-preview-panel">
+
+            <span class="section-kicker">
+              Aperçu
+            </span>
+
+            <h2>Nouvelle catégorie</h2>
+
+            <div
+              class="category-preview-card"
+              [style.borderColor]="categoryForm.get('color')?.value"
+            >
+
+              <div
+                class="category-avatar large"
+                [style.background]="categoryForm.get('color')?.value + '18'"
+                [style.color]="categoryForm.get('color')?.value"
+              >
+                {{
+                  getCategoryIcon({
+                    name: '',
+                    type: categoryForm.get('type')?.value,
+                    icon: categoryForm.get('icon')?.value,
+                    color: categoryForm.get('color')?.value
+                  })
+                }}
+              </div>
+
+              <div>
+                <strong>
+                  {{
+                    categoryForm.get('name')?.value
+                    || 'Nom de la catégorie'
+                  }}
+                </strong>
+
+                <small>
+                  {{
+                    categoryForm.get('type')?.value === 'INCOME'
+                      ? 'Catégorie de revenu'
+                      : 'Catégorie de dépense'
+                  }}
+                </small>
+              </div>
+
+            </div>
+
+          </article>
+
+        </section>
+
+        <section class="category-groups">
+
+          <article class="panel">
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  Entrées
+                </span>
+                <h2>Catégories de revenus</h2>
+              </div>
+            </div>
+
+            <div
+              *ngIf="incomeCategories.length === 0"
+              class="empty-state compact"
+            >
+              <span>💰</span>
+              <p>Aucune catégorie de revenu.</p>
+            </div>
+
+            <div class="category-list">
+
+              <div
+                *ngFor="
+                  let category of incomeCategories;
+                  trackBy: trackById
+                "
+                class="category-list-item"
+              >
+
+                <div
+                  class="category-avatar"
+                  [style.background]="category.color + '18'"
+                  [style.color]="category.color"
+                >
+                  {{ getCategoryIcon(category) }}
+                </div>
+
+                <div class="category-list-info">
+                  <strong>
+                    {{ category.name }}
+                  </strong>
+                  <small>Revenu</small>
+                </div>
+
+                <span
+                  class="color-dot"
+                  [style.background]="category.color"
+                ></span>
+
+                <div class="table-actions">
+
+                  <button
+                    type="button"
+                    class="action-button edit"
+                    (click)="editCategory(category)"
+                  >
+                    ✎
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button delete"
+                    (click)="deleteCategory(category)"
+                  >
+                    🗑
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </article>
+
+          <article class="panel">
+
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">
+                  Sorties
+                </span>
+                <h2>Catégories de dépenses</h2>
+              </div>
+            </div>
+
+            <div
+              *ngIf="expenseCategories.length === 0"
+              class="empty-state compact"
+            >
+              <span>💸</span>
+              <p>Aucune catégorie de dépense.</p>
+            </div>
+
+            <div class="category-list">
+
+              <div
+                *ngFor="
+                  let category of expenseCategories;
+                  trackBy: trackById
+                "
+                class="category-list-item"
+              >
+
+                <div
+                  class="category-avatar"
+                  [style.background]="category.color + '18'"
+                  [style.color]="category.color"
+                >
+                  {{ getCategoryIcon(category) }}
+                </div>
+
+                <div class="category-list-info">
+                  <strong>
+                    {{ category.name }}
+                  </strong>
+                  <small>Dépense</small>
+                </div>
+
+                <span
+                  class="color-dot"
+                  [style.background]="category.color"
+                ></span>
+
+                <div class="table-actions">
+
+                  <button
+                    type="button"
+                    class="action-button edit"
+                    (click)="editCategory(category)"
+                  >
+                    ✎
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button delete"
+                    (click)="deleteCategory(category)"
+                  >
+                    🗑
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </article>
+
+        </section>
+
+      </ng-container>
+
+    </ng-container>
+
+  </main>
+
+</div>
