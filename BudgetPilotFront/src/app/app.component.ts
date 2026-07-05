@@ -20,6 +20,17 @@ import {
 } from './entity/category';
 
 import {
+  AnalysisLanguage,
+  FinancialAnalysis,
+  FinancialHealth,
+  RecommendationPriority
+} from './entity/ai-analysis';
+
+import {
+  AiAnalysisService
+} from './service/ai-analysis.service';
+
+import {
   FinancialTransaction,
   TransactionFilters,
   TransactionRequest
@@ -70,6 +81,14 @@ interface ExpenseBreakdownItem {
   ]
 })
 export class AppComponent implements OnInit {
+
+  aiAnalysis: FinancialAnalysis | null = null;
+
+aiLoading = false;
+
+aiErrorMessage = '';
+
+aiLanguage: AnalysisLanguage = 'fr';
 
   activeView: AppView = 'dashboard';
 
@@ -138,7 +157,8 @@ export class AppComponent implements OnInit {
     private categoryService: CategoryService,
     private transactionService: FinancialTransactionService,
     private budgetService: BudgetService,
-    private statisticsService: StatisticsService
+    private statisticsService: StatisticsService,
+    private aiAnalysisService: AiAnalysisService
   ) {
     const currentYear =
       new Date().getFullYear();
@@ -273,22 +293,143 @@ export class AppComponent implements OnInit {
     this.successMessage = '';
   }
 
-  changePeriod(): void {
-    this.filterForm.patchValue({
-      dateFrom: this.getPeriodStart(),
-      dateTo: this.getPeriodEnd()
+changePeriod(): void {
+
+  this.aiAnalysis = null;
+  this.aiErrorMessage = '';
+
+  this.filterForm.patchValue({
+    dateFrom: this.getPeriodStart(),
+    dateTo: this.getPeriodEnd()
+  });
+
+  if (this.editingBudgetId === null) {
+
+    this.budgetForm.patchValue({
+      budgetYear: this.selectedYear,
+      budgetMonth: this.selectedMonth
     });
-
-    if (this.editingBudgetId === null) {
-      this.budgetForm.patchValue({
-        budgetYear: this.selectedYear,
-        budgetMonth: this.selectedMonth
-      });
-    }
-
-    this.loadAllData();
   }
 
+  this.loadAllData();
+}
+
+analyzeFinancesWithAI(): void {
+
+  this.aiLoading = true;
+  this.aiErrorMessage = '';
+  this.aiAnalysis = null;
+
+  this.aiAnalysisService
+    .analyzeFinances({
+      year: this.selectedYear,
+      month: this.selectedMonth,
+      language: this.aiLanguage
+    })
+    .subscribe({
+
+      next: analysis => {
+
+        this.aiAnalysis = analysis;
+        this.aiLoading = false;
+      },
+
+      error: error => {
+
+        console.error(
+          'Erreur analyse IA :',
+          error
+        );
+
+        this.aiErrorMessage =
+          error?.error?.message
+          ||
+          'Impossible de générer l’analyse financière.';
+
+        this.aiLoading = false;
+      }
+    });
+}
+
+getFinancialHealthLabel(
+  health: FinancialHealth
+): string {
+
+  switch (health) {
+
+    case 'GOOD':
+      return 'Bonne';
+
+    case 'WARNING':
+      return 'À surveiller';
+
+    case 'CRITICAL':
+      return 'Critique';
+
+    default:
+      return health;
+  }
+}
+
+getFinancialHealthClass(
+  health: FinancialHealth
+): string {
+
+  switch (health) {
+
+    case 'GOOD':
+      return 'health-good';
+
+    case 'WARNING':
+      return 'health-warning';
+
+    case 'CRITICAL':
+      return 'health-critical';
+
+    default:
+      return '';
+  }
+}
+
+getPriorityLabel(
+  priority: RecommendationPriority
+): string {
+
+  switch (priority) {
+
+    case 'HIGH':
+      return 'Priorité élevée';
+
+    case 'MEDIUM':
+      return 'Priorité moyenne';
+
+    case 'LOW':
+      return 'Priorité faible';
+
+    default:
+      return priority;
+  }
+}
+
+getPriorityClass(
+  priority: RecommendationPriority
+): string {
+
+  switch (priority) {
+
+    case 'HIGH':
+      return 'priority-high';
+
+    case 'MEDIUM':
+      return 'priority-medium';
+
+    case 'LOW':
+      return 'priority-low';
+
+    default:
+      return '';
+  }
+}
   loadAllData(): void {
     this.loading = true;
     this.errorMessage = '';

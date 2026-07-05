@@ -207,6 +207,416 @@
           </article>
 
         </section>
+        <section class="panel ai-analysis-panel">
+
+  <div class="ai-header">
+
+    <div class="ai-title">
+
+      <div class="ai-logo">
+        ✦
+      </div>
+
+      <div>
+
+        <span class="section-kicker">
+          Intelligence artificielle
+        </span>
+
+        <h2>
+          Analyse financière intelligente
+        </h2>
+
+        <p>
+          BudgetPilot AI analyse vos revenus,
+          vos dépenses et vos budgets du mois sélectionné.
+        </p>
+
+      </div>
+
+    </div>
+
+    <div class="ai-actions">
+
+      <select
+        [(ngModel)]="aiLanguage"
+        aria-label="Langue de l'analyse"
+      >
+
+        <option value="fr">
+          Français
+        </option>
+
+        <option value="ar">
+          العربية
+        </option>
+
+      </select>
+
+      <button
+        type="button"
+        class="ai-button"
+        [disabled]="aiLoading"
+        (click)="analyzeFinancesWithAI()"
+      >
+
+        <span *ngIf="!aiLoading">
+          ✦
+        </span>
+
+        <span
+          *ngIf="aiLoading"
+          class="button-spinner"
+        ></span>
+
+        {{
+          aiLoading
+            ? 'Analyse en cours...'
+            : 'Analyser avec l’IA'
+        }}
+
+      </button>
+
+    </div>
+
+  </div>
+
+  <div
+    *ngIf="aiErrorMessage"
+    class="ai-error"
+  >
+    ⚠️ {{ aiErrorMessage }}
+  </div>
+
+  <div
+    *ngIf="aiLoading"
+    class="ai-loading"
+  >
+
+    <div class="ai-loading-animation">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <div>
+
+      <strong>
+        Gemini analyse vos finances...
+      </strong>
+
+      <p>
+        Analyse des revenus, dépenses,
+        budgets et opportunités d’économie.
+      </p>
+
+    </div>
+
+  </div>
+
+  <div
+    *ngIf="
+      !aiLoading
+      &&
+      !aiAnalysis
+      &&
+      !aiErrorMessage
+    "
+    class="ai-empty"
+  >
+
+    <div class="ai-empty-icon">
+      🤖
+    </div>
+
+    <div>
+
+      <h3>
+        Obtenez des conseils personnalisés
+      </h3>
+
+      <p>
+        Lancez l’analyse pour recevoir un score financier,
+        des observations et des recommandations adaptées.
+      </p>
+
+    </div>
+
+  </div>
+
+  <ng-container *ngIf="aiAnalysis as analysis">
+
+    <div class="ai-result-header">
+
+      <div
+        class="score-circle"
+        [style.background]="
+          'conic-gradient(#6366f1 '
+          + analysis.score
+          + '%, #e5e7eb 0)'
+        "
+      >
+
+        <div class="score-circle-inner">
+
+          <strong>
+            {{ analysis.score }}
+          </strong>
+
+          <span>
+            / 100
+          </span>
+
+        </div>
+
+      </div>
+
+      <div class="ai-summary">
+
+        <div class="ai-summary-top">
+
+          <span
+            class="health-badge"
+            [ngClass]="
+              getFinancialHealthClass(
+                analysis.financial_health
+              )
+            "
+          >
+            Santé financière :
+            {{
+              getFinancialHealthLabel(
+                analysis.financial_health
+              )
+            }}
+          </span>
+
+          <small>
+            {{ months[selectedMonth - 1].label }}
+            {{ selectedYear }}
+          </small>
+
+        </div>
+
+        <h3>
+          Résumé de l’analyse
+        </h3>
+
+        <p>
+          {{ analysis.summary }}
+        </p>
+
+      </div>
+
+    </div>
+
+    <div class="ai-content-grid">
+
+      <article class="ai-section">
+
+        <div class="ai-section-title">
+
+          <span>
+            🔍
+          </span>
+
+          <div>
+
+            <small>
+              Analyse
+            </small>
+
+            <h3>
+              Observations importantes
+            </h3>
+
+          </div>
+
+        </div>
+
+        <ul class="observation-list">
+
+          <li
+            *ngFor="
+              let observation of analysis.key_observations;
+              let index = index
+            "
+          >
+
+            <span>
+              {{ index + 1 }}
+            </span>
+
+            <p>
+              {{ observation }}
+            </p>
+
+          </li>
+
+        </ul>
+
+      </article>
+
+      <article class="ai-section">
+
+        <div class="ai-section-title">
+
+          <span>
+            🎯
+          </span>
+
+          <div>
+
+            <small>
+              Objectif
+            </small>
+
+            <h3>
+              Prochain mois
+            </h3>
+
+          </div>
+
+        </div>
+
+        <div class="next-target">
+          {{ analysis.next_month_target }}
+        </div>
+
+      </article>
+
+    </div>
+
+    <div class="ai-section recommendations-section">
+
+      <div class="ai-section-title">
+
+        <span>
+          💡
+        </span>
+
+        <div>
+
+          <small>
+            Conseils
+          </small>
+
+          <h3>
+            Recommandations personnalisées
+          </h3>
+
+        </div>
+
+      </div>
+
+      <div class="recommendations-grid">
+
+        <article
+          *ngFor="
+            let recommendation of analysis.recommendations
+          "
+          class="recommendation-card"
+        >
+
+          <div class="recommendation-header">
+
+            <span
+              class="priority-badge"
+              [ngClass]="
+                getPriorityClass(
+                  recommendation.priority
+                )
+              "
+            >
+              {{
+                getPriorityLabel(
+                  recommendation.priority
+                )
+              }}
+            </span>
+
+          </div>
+
+          <h4>
+            {{ recommendation.title }}
+          </h4>
+
+          <p>
+            {{ recommendation.description }}
+          </p>
+
+        </article>
+
+      </div>
+
+    </div>
+
+    <div
+      *ngIf="
+        analysis.saving_opportunities.length > 0
+      "
+      class="ai-section savings-section"
+    >
+
+      <div class="ai-section-title">
+
+        <span>
+          💰
+        </span>
+
+        <div>
+
+          <small>
+            Économies
+          </small>
+
+          <h3>
+            Opportunités détectées
+          </h3>
+
+        </div>
+
+      </div>
+
+      <div class="savings-grid">
+
+        <article
+          *ngFor="
+            let opportunity of analysis.saving_opportunities
+          "
+          class="saving-card"
+        >
+
+          <div class="saving-category">
+            {{ opportunity.category }}
+          </div>
+
+          <strong>
+            Jusqu’à
+            {{
+              formatAmount(
+                opportunity.estimated_monthly_saving
+              )
+            }}
+          </strong>
+
+          <p>
+            {{ opportunity.action }}
+          </p>
+
+        </article>
+
+      </div>
+
+    </div>
+
+    <div class="ai-disclaimer">
+      ℹ️ {{ analysis.disclaimer }}
+    </div>
+
+  </ng-container>
+
+</section>
 
         <section class="dashboard-grid">
 
